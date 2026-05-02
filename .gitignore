@@ -1,0 +1,9 @@
+# Credentials – niemals versionieren
+.env
+.env.local
+.env.*.local
+
+# Editor & OS
+.DS_Store
+Thumbs.db
+*.swp
