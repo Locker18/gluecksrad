@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glücksrad – Random Name Picker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      padding: 1.2rem 1rem 0.5rem;
+    }
+    header h1 {
+      font-size: clamp(1.4rem, 4vw, 2.4rem);
+      font-weight: 900;
+      background: linear-gradient(90deg, #FFD700, #FFA500, #FFD700);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: 1px;
+      text-shadow: none;
+    }
+    header p {
+      color: #aaa;
+      font-size: 0.85rem;
+      margin-top: 0.2rem;
+    }
+
+    /* ── Layout ── */
+    .app {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 1rem 1.5rem 2rem;
+      flex: 1;
+    }
+
+    /* ── Wheel Panel ── */
+    .wheel-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .wheel-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+
+    /* Pointer triangle at top */
+    .pointer {
+      position: absolute;
+      top: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 14px solid transparent;
+      border-right: 14px solid transparent;
+      border-top: 30px solid #FFD700;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+      z-index: 10;
+    }
+
+    #wheelCanvas {
+      display: block;
+      border-radius: 50%;
+      box-shadow: 0 0 0 6px #FFD700, 0 0 0 10px #b8860b, 0 8px 40px rgba(0,0,0,0.6);
+    }
+
+    /* Spin button */
+    #btnSpin {
+      background: linear-gradient(135deg, #FFD700, #FFA500);
+      color: #1a1a2e;
+      border: none;
+      border-radius: 50px;
+      padding: 0.9rem 3rem;
+      font-size: 1.2rem;
+      font-weight: 900;
+      font-family: 'Poppins', sans-serif;
+      cursor: pointer;
+      letter-spacing: 1px;
+      box-shadow: 0 4px 20px rgba(255,215,0,0.4);
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+    }
+    #btnSpin:hover:not(:disabled) {
+      transform: translateY(-2px) scale(1.04);
+      box-shadow: 0 8px 28px rgba(255,215,0,0.6);
+    }
+    #btnSpin:active:not(:disabled) { transform: scale(0.97); }
+    #btnSpin:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* Mute button */
+    #btnMute {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 50%;
+      width: 42px;
+      height: 42px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      color: #fff;
+      transition: background 0.2s;
+      z-index: 200;
+    }
+    #btnMute:hover { background: rgba(255,255,255,0.2); }
+
+    /* ── Side Panel ── */
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+      width: min(340px, 100%);
+    }
+
+    .card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 1.1rem 1.2rem;
+    }
+    .card h2 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #FFD700;
+      margin-bottom: 0.8rem;
+      letter-spacing: 0.5px;
+    }
+
+    /* Input area */
+    .input-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.6rem;
+    }
+    .input-row input {
+      flex: 1;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      padding: 0.55rem 0.8rem;
+      color: #fff;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .input-row input:focus { border-color: #FFD700; }
+    .input-row input::placeholder { color: rgba(255,255,255,0.35); }
+
+    .btn-gold {
+      background: linear-gradient(135deg, #FFD700, #FFA500);
+      color: #1a1a2e;
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 1rem;
+      font-weight: 700;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.1s;
+      white-space: nowrap;
+    }
+    .btn-gold:hover { opacity: 0.9; transform: scale(1.03); }
+
+    .btn-subtle {
+      background: rgba(255,255,255,0.1);
+      color: #ccc;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      padding: 0.4rem 0.8rem;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-subtle:hover { background: rgba(255,255,255,0.18); color: #fff; }
+
+    /* File import */
+    .import-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.4rem;
+    }
+    #fileInput { display: none; }
+    .import-row label {
+      cursor: pointer;
+      font-size: 0.8rem;
+      color: #aaa;
+      transition: color 0.2s;
+    }
+    .import-row label:hover { color: #FFD700; }
+
+    /* Name list */
+    #nameCount {
+      font-size: 0.8rem;
+      color: #aaa;
+      margin-bottom: 0.5rem;
+    }
+    .name-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      max-height: 220px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .name-list::-webkit-scrollbar { width: 4px; }
+    .name-list::-webkit-scrollbar-track { background: transparent; }
+    .name-list::-webkit-scrollbar-thumb { background: rgba(255,215,0,0.3); border-radius: 2px; }
+
+    .name-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255,255,255,0.06);
+      border-radius: 8px;
+      padding: 0.35rem 0.7rem;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+
+    .name-item .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 0.6rem;
+      flex-shrink: 0;
+    }
+    .name-item span {
+      flex: 1;
+      font-size: 0.85rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .name-item button {
+      background: none;
+      border: none;
+      color: rgba(255,100,100,0.7);
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0 0 0 0.5rem;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+    .name-item button:hover { color: #ff4444; }
+
+    /* Toggle remove-winner */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-top: 0.5rem;
+      font-size: 0.82rem;
+      color: #bbb;
+    }
+    .toggle-row input[type=checkbox] { accent-color: #FFD700; width: 15px; height: 15px; cursor: pointer; }
+
+    /* History */
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.8rem;
+    }
+    .history-header h2 { margin-bottom: 0; }
+    #historyList {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      max-height: 160px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    #historyList::-webkit-scrollbar { width: 4px; }
+    #historyList::-webkit-scrollbar-thumb { background: rgba(255,215,0,0.3); border-radius: 2px; }
+
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      padding: 0.3rem 0.5rem;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.04);
+    }
+    .history-item .h-name { font-weight: 600; color: #FFD700; }
+    .history-item .h-time { color: #777; font-size: 0.75rem; }
+    .history-empty { font-size: 0.82rem; color: #555; text-align: center; padding: 0.5rem; }
+
+    /* ── Modal ── */
+    #modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    #modal.active { display: flex; }
+
+    .modal-box {
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      border: 2px solid #FFD700;
+      border-radius: 24px;
+      padding: 2.5rem 2rem;
+      text-align: center;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 40px rgba(255,215,0,0.15);
+      animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes popIn {
+      from { transform: scale(0.5); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+
+    .modal-box .trophy { font-size: 3.5rem; margin-bottom: 0.5rem; }
+    .modal-box .winner-label { font-size: 0.9rem; color: #aaa; letter-spacing: 2px; text-transform: uppercase; }
+    .modal-box .winner-name {
+      font-size: clamp(1.6rem, 6vw, 2.6rem);
+      font-weight: 900;
+      background: linear-gradient(90deg, #FFD700, #FFA500, #FFD700);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin: 0.4rem 0 1.5rem;
+      word-break: break-word;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 0.8rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .modal-actions .btn-gold { padding: 0.7rem 1.5rem; font-size: 0.95rem; border-radius: 50px; }
+    .modal-actions .btn-subtle { padding: 0.7rem 1.5rem; font-size: 0.95rem; border-radius: 50px; }
+  </style>
+</head>
+<body>
+
+<button id="btnMute" title="Ton an/aus">🔊</button>
+
+<header>
+  <h1>🎡 Glücksrad</h1>
+  <p>Namen eintragen · Rad drehen · Gewinner feiern</p>
+</header>
+
+<div class="app">
+
+  <!-- Wheel -->
+  <div class="wheel-panel">
+    <div class="wheel-wrapper">
+      <div class="pointer"></div>
+      <canvas id="wheelCanvas" width="420" height="420"></canvas>
+    </div>
+    <button id="btnSpin" disabled>🎰 Drehen!</button>
+  </div>
+
+  <!-- Side Panel -->
+  <div class="side-panel">
+
+    <!-- Input Card -->
+    <div class="card">
+      <h2>👥 Teilnehmer</h2>
+      <div class="input-row">
+        <input type="text" id="nameInput" placeholder="Name eingeben…" maxlength="50">
+        <button class="btn-gold" id="btnAdd">+ Hinzufügen</button>
+      </div>
+      <div class="import-row">
+        <button class="btn-subtle" onclick="document.getElementById('fileInput').click()">📂 CSV / TXT importieren</button>
+        <input type="file" id="fileInput" accept=".csv,.txt">
+      </div>
+      <div class="toggle-row" style="margin-top:0.8rem;">
+        <input type="checkbox" id="chkRemove">
+        <label for="chkRemove">Gewinner nach dem Drehen entfernen</label>
+      </div>
+    </div>
+
+    <!-- Name List Card -->
+    <div class="card">
+      <h2>📋 Namensliste</h2>
+      <div id="nameCount">0 Namen – mindestens 2 zum Drehen</div>
+      <div class="name-list" id="nameList"></div>
+    </div>
+
+    <!-- History Card -->
+    <div class="card">
+      <div class="history-header">
+        <h2>🏆 Gewinner-Historie</h2>
+        <button class="btn-subtle" id="btnClearHistory">Löschen</button>
+      </div>
+      <div id="historyList"><div class="history-empty">Noch keine Gewinner</div></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Winner Modal -->
+<div id="modal">
+  <div class="modal-box">
+    <div class="trophy">🏆</div>
+    <div class="winner-label">Gewinner</div>
+    <div class="winner-name" id="modalWinnerName"></div>
+    <div class="modal-actions">
+      <button class="btn-gold" id="btnAgain">🔄 Nochmal drehen</button>
+      <button class="btn-subtle" id="btnClose">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ── Zentrale App-Konfiguration ── */
+const app = {
+  namen: [],
+  drehend: false,
+  aktuelleRotation: 0,
+  stumm: false,
+  audioCtx: null,
+  farben: ['#FF6B6B','#FFA500','#FFD93D','#6BCB77','#4D96FF','#9B59B6','#FF6FAE','#1ABC9C'],
+};
+
+/* ── DOM-Referenzen ── */
+const canvas      = document.getElementById('wheelCanvas');
+const ctx         = canvas.getContext('2d');
+const btnSpin     = document.getElementById('btnSpin');
+const btnAdd      = document.getElementById('btnAdd');
+const btnMute     = document.getElementById('btnMute');
+const btnClearHist= document.getElementById('btnClearHistory');
+const btnAgain    = document.getElementById('btnAgain');
+const btnClose    = document.getElementById('btnClose');
+const nameInput   = document.getElementById('nameInput');
+const fileInput   = document.getElementById('fileInput');
+const modal       = document.getElementById('modal');
+const modalName   = document.getElementById('modalWinnerName');
+const nameListEl  = document.getElementById('nameList');
+const nameCountEl = document.getElementById('nameCount');
+const historyEl   = document.getElementById('historyList');
+const chkRemove   = document.getElementById('chkRemove');
+
+/* ── Canvas-Größe responsiv ── */
+function anpassenCanvasGroesse() {
+  const maxBreite = Math.min(window.innerWidth - 40, 420);
+  canvas.style.width  = maxBreite + 'px';
+  canvas.style.height = maxBreite + 'px';
+}
+anpassenCanvasGroesse();
+window.addEventListener('resize', () => { anpassenCanvasGroesse(); radZeichnen(); });
+
+/* ════════════════════════════════════════
+   NAMEN-VERWALTUNG
+════════════════════════════════════════ */
+
+function nameHinzufuegen(name) {
+  name = name.trim();
+  if (!name) return;
+  if (name.length > 50) { name = name.slice(0, 50); }
+  if (app.namen.length >= 100) { alert('Maximum 100 Namen erreicht.'); return; }
+  app.namen.push(name);
+  speichern();
+  listenAnzeige();
+  radZeichnen();
+}
+
+function nameEntfernen(index) {
+  app.namen.splice(index, 1);
+  speichern();
+  listenAnzeige();
+  radZeichnen();
+}
+
+function listenAnzeige() {
+  const anzahl = app.namen.length;
+  nameCountEl.textContent = anzahl === 0
+    ? '0 Namen – mindestens 2 zum Drehen'
+    : anzahl === 1
+      ? '1 Name – noch einen hinzufügen'
+      : `${anzahl} Namen`;
+
+  btnSpin.disabled = anzahl < 2 || app.drehend;
+
+  nameListEl.innerHTML = '';
+  app.namen.forEach((name, i) => {
+    const item = document.createElement('div');
+    item.className = 'name-item';
+
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.style.background = app.farben[i % app.farben.length];
+
+    const label = document.createElement('span');
+    label.title = name;
+    label.textContent = name;
+
+    const btnX = document.createElement('button');
+    btnX.textContent = '×';
+    btnX.title = 'Entfernen';
+    btnX.addEventListener('click', () => nameEntfernen(i));
+
+    item.append(dot, label, btnX);
+    nameListEl.appendChild(item);
+  });
+}
+
+/* ════════════════════════════════════════
+   GLÜCKSRAD ZEICHNEN
+════════════════════════════════════════ */
+
+function radZeichnen() {
+  const w = canvas.width;
+  const h = canvas.height;
+  const mx = w / 2;
+  const my = h / 2;
+  const radius = mx - 8;
+
+  ctx.clearRect(0, 0, w, h);
+
+  if (app.namen.length === 0) {
+    /* Leeres Rad */
+    ctx.beginPath();
+    ctx.arc(mx, my, radius, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.fill();
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = 'bold 18px Poppins, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Namen hinzufügen', mx, my);
+    return;
+  }
+
+  const n = app.namen.length;
+  /* Winkel pro Segment in Radiant */
+  const segWinkel = (2 * Math.PI) / n;
+
+  for (let i = 0; i < n; i++) {
+    const startWinkel = app.aktuelleRotation + i * segWinkel;
+    const endWinkel   = startWinkel + segWinkel;
+
+    /* Segment */
+    ctx.beginPath();
+    ctx.moveTo(mx, my);
+    ctx.arc(mx, my, radius, startWinkel, endWinkel);
+    ctx.closePath();
+    ctx.fillStyle = app.farben[i % app.farben.length];
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    /* Text */
+    ctx.save();
+    ctx.translate(mx, my);
+    ctx.rotate(startWinkel + segWinkel / 2);
+
+    /* Schriftgröße dynamisch nach Anzahl und Namenslänge */
+    const maxNameLen = Math.max(...app.namen.map(n => n.length));
+    let fontSize = Math.min(16, Math.max(7, 200 / n, 120 / maxNameLen));
+    ctx.font = `bold ${fontSize}px Poppins, sans-serif`;
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 3;
+
+    /* Langen Namen kürzen */
+    let anzeigeName = app.namen[i];
+    const maxBreiteText = radius * 0.75;
+    while (ctx.measureText(anzeigeName).width > maxBreiteText && anzeigeName.length > 3) {
+      anzeigeName = anzeigeName.slice(0, -1);
+    }
+    if (anzeigeName !== app.namen[i]) anzeigeName = anzeigeName.slice(0,-1) + '…';
+
+    ctx.fillText(anzeigeName, radius - 12, 0);
+    ctx.restore();
+  }
+
+  /* Äußerer Goldring */
+  ctx.beginPath();
+  ctx.arc(mx, my, radius, 0, Math.PI * 2);
+  ctx.strokeStyle = '#FFD700';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  /* Mittelkreis */
+  ctx.beginPath();
+  ctx.arc(mx, my, 38, 0, Math.PI * 2);
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fill();
+  ctx.strokeStyle = '#FFD700';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.fillStyle = '#FFD700';
+  ctx.font = 'bold 13px Poppins, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'transparent';
+  ctx.fillText('SPIN!', mx, my);
+}
+
+/* ════════════════════════════════════════
+   DREHMECHANIK
+════════════════════════════════════════ */
+
+function radDrehen() {
+  if (app.drehend || app.namen.length < 2) return;
+  app.drehend = true;
+  btnSpin.disabled = true;
+
+  /* Zufälliger Endwinkel: 5–10 Umdrehungen + zufälliger Offset */
+  const extraUmdrehungen = (5 + Math.random() * 5) * 2 * Math.PI;
+  const zufallsOffset = Math.random() * 2 * Math.PI;
+  const zielDelta = extraUmdrehungen + zufallsOffset;
+  const startRotation = app.aktuelleRotation;
+  const zielRotation  = startRotation + zielDelta;
+
+  const dauer = 4000 + Math.random() * 2000; // 4–6 Sekunden
+  let startZeit = null;
+
+  /* Tick-Sound starten */
+  let tickInterval = null;
+  if (!app.stumm) {
+    let tickBpm = 20;
+    tickInterval = setInterval(() => {
+      spieleTick();
+      tickBpm = Math.min(tickBpm + 3, 50);
+    }, 1000 / tickBpm);
+  }
+
+  /* Easing: kubische ease-out (Rotation verlangsamt sich am Ende) */
+  function easeOut(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function animSchritt(zeitstempel) {
+    if (!startZeit) startZeit = zeitstempel;
+    const verstrichene = zeitstempel - startZeit;
+    const t = Math.min(verstrichene / dauer, 1);
+    const easedT = easeOut(t);
+
+    app.aktuelleRotation = startRotation + easedT * zielDelta;
+    radZeichnen();
+
+    if (t < 1) {
+      requestAnimationFrame(animSchritt);
+    } else {
+      /* Animation abgeschlossen */
+      app.aktuelleRotation = zielRotation;
+      if (tickInterval) clearInterval(tickInterval);
+      gewinnerErmitteln();
+    }
+  }
+
+  requestAnimationFrame(animSchritt);
+}
+
+/* ════════════════════════════════════════
+   GEWINNER-ERMITTLUNG
+════════════════════════════════════════ */
+
+function gewinnerErmitteln() {
+  const n = app.namen.length;
+  const segWinkel = (2 * Math.PI) / n;
+
+  /*
+   * Pfeil zeigt bei 270° (12-Uhr = -π/2 = 3π/2 im Canvas-Koordinatensystem).
+   * Wir normalisieren die aktuelle Rotation auf [0, 2π) und berechnen,
+   * welches Segment gerade oben liegt.
+   */
+  const normiert = ((app.aktuelleRotation % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  const pfeilWinkel = (3 * Math.PI / 2); // 270°
+  // Winkel des Pfeils relativ zur Rotation
+  const relativWinkel = ((pfeilWinkel - normiert) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+  const gewinnerIndex = Math.floor(relativWinkel / segWinkel) % n;
+
+  const gewinnerName = app.namen[gewinnerIndex];
+
+  setTimeout(() => {
+    gewinnerZeigen(gewinnerName, gewinnerIndex);
+  }, 300);
+}
+
+/* ════════════════════════════════════════
+   GEWINNER-ANZEIGE
+════════════════════════════════════════ */
+
+function gewinnerZeigen(name, index) {
+  modalName.textContent = name;
+  modal.classList.add('active');
+
+  /* Konfetti */
+  if (typeof confetti === 'function') {
+    confetti({ particleCount: 150, spread: 70, origin: { y: 0.3 }, colors: ['#FFD700','#FFA500','#FF6B6B','#6BCB77','#4D96FF'] });
+  }
+
+  /* Fanfare-Sound */
+  if (!app.stumm) spieleFanfare();
+
+  /* Historie speichern */
+  historieSpeichern(name);
+
+  /* Gewinner entfernen (falls Toggle aktiv) */
+  if (chkRemove.checked) {
+    app.namen.splice(index, 1);
+    speichern();
+  }
+
+  app.drehend = false;
+}
+
+/* ── Modal-Buttons ── */
+btnClose.addEventListener('click', () => {
+  modal.classList.remove('active');
+  listenAnzeige();
+  radZeichnen();
+});
+
+btnAgain.addEventListener('click', () => {
+  modal.classList.remove('active');
+  listenAnzeige();
+  radZeichnen();
+  setTimeout(radDrehen, 300);
+});
+
+/* ════════════════════════════════════════
+   GEWINNER-HISTORIE
+════════════════════════════════════════ */
+
+function historieSpeichern(name) {
+  const eintrag = { name, zeit: new Date().toLocaleString('de-DE') };
+  let historie = JSON.parse(localStorage.getItem('gluecksrad_historie') || '[]');
+  historie.unshift(eintrag);
+  if (historie.length > 50) historie = historie.slice(0, 50);
+  localStorage.setItem('gluecksrad_historie', JSON.stringify(historie));
+  historieAnzeigen();
+}
+
+function historieAnzeigen() {
+  const liste = JSON.parse(localStorage.getItem('gluecksrad_historie') || '[]');
+  if (liste.length === 0) {
+    historyEl.innerHTML = '<div class="history-empty">Noch keine Gewinner</div>';
+    return;
+  }
+  historyEl.innerHTML = liste.map(e => `
+    <div class="history-item">
+      <span class="h-name">${escHtml(e.name)}</span>
+      <span class="h-time">${escHtml(e.zeit)}</span>
+    </div>
+  `).join('');
+}
+
+btnClearHistory.addEventListener('click', () => {
+  localStorage.removeItem('gluecksrad_historie');
+  historieAnzeigen();
+});
+
+/* ════════════════════════════════════════
+   PERSISTENZ (localStorage)
+════════════════════════════════════════ */
+
+function speichern() {
+  localStorage.setItem('gluecksrad_namen', JSON.stringify(app.namen));
+}
+
+function laden() {
+  const gespeichert = localStorage.getItem('gluecksrad_namen');
+  if (gespeichert) {
+    try { app.namen = JSON.parse(gespeichert); } catch { app.namen = []; }
+  }
+}
+
+/* ════════════════════════════════════════
+   SOUND (Web Audio API – synthetisch)
+════════════════════════════════════════ */
+
+function audioKontextHolen() {
+  if (!app.audioCtx) {
+    app.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return app.audioCtx;
+}
+
+function spieleTick() {
+  try {
+    const ac = audioKontextHolen();
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.connect(gain);
+    gain.connect(ac.destination);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(880, ac.currentTime);
+    gain.gain.setValueAtTime(0.12, ac.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.06);
+    osc.start(ac.currentTime);
+    osc.stop(ac.currentTime + 0.06);
+  } catch {}
+}
+
+function spieleFanfare() {
+  try {
+    const ac = audioKontextHolen();
+    const noten = [523, 659, 784, 1047]; // C5 E5 G5 C6
+    noten.forEach((freq, i) => {
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.connect(gain);
+      gain.connect(ac.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ac.currentTime + i * 0.15);
+      gain.gain.setValueAtTime(0.25, ac.currentTime + i * 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + i * 0.15 + 0.4);
+      osc.start(ac.currentTime + i * 0.15);
+      osc.stop(ac.currentTime + i * 0.15 + 0.45);
+    });
+  } catch {}
+}
+
+/* ── Mute-Button ── */
+btnMute.addEventListener('click', () => {
+  app.stumm = !app.stumm;
+  btnMute.textContent = app.stumm ? '🔇' : '🔊';
+});
+
+/* ════════════════════════════════════════
+   CSV-IMPORT
+════════════════════════════════════════ */
+
+fileInput.addEventListener('change', e => {
+  const datei = e.target.files[0];
+  if (!datei) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const inhalt = ev.target.result;
+    /* Zeilenweise oder kommagetrennt parsen */
+    const zeilen = inhalt.split(/[\r\n,;]+/);
+    let hinzugefuegt = 0;
+    zeilen.forEach(z => {
+      const bereinigt = z.trim().replace(/^["']|["']$/g, '');
+      if (bereinigt && app.namen.length < 100) {
+        app.namen.push(bereinigt.slice(0, 50));
+        hinzugefuegt++;
+      }
+    });
+    speichern();
+    listenAnzeige();
+    radZeichnen();
+    if (hinzugefuegt > 0) alert(`${hinzugefuegt} Namen importiert.`);
+  };
+  reader.readAsText(datei, 'UTF-8');
+  fileInput.value = '';
+});
+
+/* ════════════════════════════════════════
+   EINGABE-EVENTS
+════════════════════════════════════════ */
+
+btnAdd.addEventListener('click', () => {
+  nameHinzufuegen(nameInput.value);
+  nameInput.value = '';
+  nameInput.focus();
+});
+
+nameInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') btnAdd.click();
+});
+
+/* Leertaste startet Rad (außer wenn Eingabefeld fokussiert) */
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && document.activeElement !== nameInput) {
+    e.preventDefault();
+    if (!btnSpin.disabled) radDrehen();
+  }
+});
+
+btnSpin.addEventListener('click', radDrehen);
+
+/* ════════════════════════════════════════
+   HILFSFUNKTIONEN
+════════════════════════════════════════ */
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ════════════════════════════════════════
+   INITIALISIERUNG
+════════════════════════════════════════ */
+
+laden();
+listenAnzeige();
+radZeichnen();
+historieAnzeigen();
+</script>
+</body>
+</html>
